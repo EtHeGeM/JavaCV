@@ -246,7 +246,7 @@ public class Main {
 
             // Step 3: Perform OCR on the detected plate
             System.out.println("\n[STEP 3] Performing OCR on detected plate...");
-            String plateText = ocrService.recognizePlate(plateRegion);
+            String plateText = ocrService.recognizePlate(plateRegion, detector.getCurrentImageName());
 
             if (!plateText.isEmpty()) {
                 System.out.println("╔════════════════════════════════════════════╗");
@@ -262,18 +262,6 @@ public class Main {
         return false;
     }
 
-    /**
-     * Processes all images in a directory (batch mode).
-     *
-     * <p>Why batch processing:</p>
-     * <ul>
-     *   <li>Allows testing the algorithm on multiple images at once</li>
-     *   <li>Useful for evaluating detection accuracy across different scenarios</li>
-     *   <li>Saves time during development and testing</li>
-     * </ul>
-     *
-     * @param directory The directory containing images to process
-     */
     private static String processImageWithValidation(String imagePath, String outputPath, String expectedPlate) {
         PlateDetector detector = new PlateDetector();
         OcrService ocrService = new OcrService();
@@ -294,9 +282,9 @@ public class Main {
             org.opencv.imgcodecs.Imgcodecs.imwrite(outputPath, plateRegion);
             System.out.println("[INFO] Plate saved to: " + outputPath);
 
-            // Step 3: Perform OCR on the detected plate
+            // Step 3: Perform OCR on the detected plate (with image name for debug)
             System.out.println("\n[STEP 3] Performing OCR on detected plate...");
-            String detectedPlate = ocrService.recognizePlate(plateRegion);
+            String detectedPlate = ocrService.recognizePlate(plateRegion, detector.getCurrentImageName());
 
             if (!detectedPlate.isEmpty()) {
                 System.out.println("╔════════════════════════════════════════════╗");

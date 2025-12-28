@@ -2,435 +2,214 @@ package com.alpr;
 
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
+import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * OcrService - Optical Character Recognition Service for License Plates
+ * OcrService - Optical Character Recognition for License Plates
  *
- * <p>This class wraps the Tesseract OCR engine (via Tess4J) to extract
- * text from cropped license plate images. It is specifically configured
- * for reading license plate characters.</p>
- *
- * <p>Why Tesseract for ALPR:</p>
- * <ul>
- *   <li>Open-source and well-maintained OCR engine</li>
- *   <li>Supports character whitelisting for improved accuracy</li>
- *   <li>Can be trained for specific fonts (license plate fonts)</li>
- *   <li>Works well with preprocessed binary images</li>
- * </ul>
- *
- * <p>Configuration Details:</p>
- * <ul>
- *   <li>Whitelist: Only uppercase A-Z and digits 0-9 are recognized</li>
- *   <li>Page Segmentation Mode: Single line of text (PSM 7)</li>
- *   <li>Engine Mode: LSTM neural network for better accuracy</li>
- * </ul>
+ * <p>Uses Tesseract OCR to extract text from cropped plate images.</p>
  *
  * @author ALPR Academic Project
- * @version 1.0
+ * @version 1.2 - Simplified preprocessing with debug output
  */
 public class OcrService {
 
-    /**
-     * Tesseract OCR instance.
-     *
-     * <p>Why single instance:</p>
-     * <ul>
-     *   <li>Tesseract initialization is expensive (loads trained data)</li>
-     *   <li>Reusing the instance improves performance for batch processing</li>
-     *   <li>Configuration is set once during initialization</li>
-     * </ul>
-     */
     private final Tesseract tesseract;
-
-    /**
-     * Character whitelist for license plate OCR.
-     *
-     * <p>Why whitelist only A-Z and 0-9:</p>
-     * <ul>
-     *   <li>License plates contain ONLY uppercase letters and numbers</li>
-     *   <li>Prevents misreading characters (e.g., 'l' vs '1', 'o' vs '0')</li>
-     *   <li>Significantly improves recognition accuracy</li>
-     *   <li>Turkish plates use format: 34 ABC 1234 (city code + letters + numbers)</li>
-     * </ul>
-     */
     private static final String WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-    /**
-     * Path to tessdata directory containing trained language data.
-     *
-     * <p>Default path assumes tessdata is in project root or system path.</p>
-     */
     private String tessdataPath;
 
     /**
-     * Temporary file prefix for saving Mat images before OCR processing.
+     * Debug output directory for OCR preprocessed images.
      */
-    private static final String TEMP_FILE_PREFIX = "alpr_ocr_temp_";
+    private static final String DEBUG_OCR_DIR = "debug_output/step5_ocr_preprocessed";
 
-    /**
-     * Creates a new OcrService with default tessdata path.
-     *
-     * <p>Default initialization uses system tessdata path or current directory.</p>
-     */
     public OcrService() {
         this(null);
     }
 
-    /**
-     * Creates a new OcrService with specified tessdata path.
-     *
-     * <p>Why configurable tessdata path:</p>
-     * <ul>
-     *   <li>Allows deployment flexibility (different environments)</li>
-     *   <li>Supports custom trained data for license plates</li>
-     *   <li>Enables using different language models</li>
-     * </ul>
-     *
-     * @param tessdataPath Path to tessdata directory, or null for default
-     */
     public OcrService(String tessdataPath) {
         this.tessdataPath = tessdataPath;
         this.tesseract = new Tesseract();
         initializeTesseract();
+        ensureDebugDir();
     }
 
     /**
-     * Initializes and configures the Tesseract OCR engine.
-     *
-     * <p>Configuration choices explained:</p>
-     * <ul>
-     *   <li><b>Language "eng":</b> English model works well for alphanumeric plates</li>
-     *   <li><b>PSM 7:</b> Treats image as a single text line (ideal for plates)</li>
-     *   <li><b>OEM 3:</b> Uses LSTM neural network engine for best accuracy</li>
-     *   <li><b>Whitelist:</b> Restricts output to valid plate characters only</li>
-     * </ul>
+     * Ensures the OCR debug directory exists.
      */
-    private void initializeTesseract() {
-        System.out.println("[OCR] Initializing Tesseract OCR engine...");
+    private void ensureDebugDir() {
+        File dir = new File(DEBUG_OCR_DIR);
+        if (!dir.exists()) {
+            dir.mkdirs();
+        }
+    }
 
-        // Set tessdata path if provided
-        if (tessdataPath != null && !tessdataPath.isEmpty()) {
-            tesseract.setDatapath(tessdataPath);
-            System.out.println("[OCR] Tessdata path: " + tessdataPath);
-        } else {
-            // Try common default paths
-            String defaultPath = findTessdataPath();
-            if (defaultPath != null) {
-                tesseract.setDatapath(defaultPath);
-                System.out.println("[OCR] Using detected tessdata path: " + defaultPath);
-            }
+    private void initializeTesseract() {
+        System.out.println("[OCR] Initializing Tesseract...");
+
+        String path = (tessdataPath != null) ? tessdataPath : findTessdataPath();
+        if (path != null) {
+            tesseract.setDatapath(path);
+            System.out.println("[OCR] Tessdata: " + path);
         }
 
-        // Set language to English (works for alphanumeric license plates)
         tesseract.setLanguage("eng");
-
-        /*
-         * Page Segmentation Modes (PSM) explanation:
-         * 0  = Orientation and script detection (OSD) only
-         * 1  = Automatic page segmentation with OSD
-         * 3  = Fully automatic page segmentation (default)
-         * 6  = Assume a single uniform block of text
-         * 7  = Treat the image as a single text line <-- BEST FOR LICENSE PLATES
-         * 8  = Treat the image as a single word
-         * 13 = Raw line (no binarization)
-         *
-         * Why PSM 7: License plates are typically a single line of text,
-         * this mode optimizes recognition for that specific layout.
-         */
-        tesseract.setPageSegMode(7);
-
-        /*
-         * OCR Engine Modes (OEM) explanation:
-         * 0 = Legacy engine only
-         * 1 = Neural nets LSTM engine only
-         * 2 = Legacy + LSTM engines
-         * 3 = Default, based on what is available <-- RECOMMENDED
-         *
-         * Why OEM 3: Automatically uses the best available engine,
-         * typically LSTM which provides superior accuracy.
-         */
-        tesseract.setOcrEngineMode(3);
-
-        /*
-         * Character Whitelist Configuration:
-         * By setting tessedit_char_whitelist, we tell Tesseract to ONLY
-         * recognize characters in this list. Any other character detected
-         * will be forced to match one of these.
-         *
-         * This dramatically improves accuracy for license plates because:
-         * - No lowercase letters on plates
-         * - No special characters on plates
-         * - Prevents common misreadings like 'O' vs '0', 'I' vs '1'
-         */
+        tesseract.setPageSegMode(7);  // Single line
+        tesseract.setOcrEngineMode(3); // Default (LSTM)
         tesseract.setVariable("tessedit_char_whitelist", WHITELIST);
 
-        System.out.println("[OCR] Whitelist configured: " + WHITELIST);
-        System.out.println("[OCR] Tesseract initialization complete.");
+        System.out.println("[OCR] Ready. Whitelist: " + WHITELIST);
     }
 
-    /**
-     * Attempts to find tessdata path in common locations.
-     *
-     * <p>Search order:</p>
-     * <ol>
-     *   <li>Project's tessdata directory</li>
-     *   <li>TESSDATA_PREFIX environment variable</li>
-     *   <li>Common Windows installation paths</li>
-     *   <li>Common Linux/Mac installation paths</li>
-     * </ol>
-     *
-     * @return Found tessdata path, or null if not found
-     */
     private String findTessdataPath() {
-        // Check project directory first - use absolute path for reliability
-        String projectDir = System.getProperty("user.dir");
-
-        String[] possiblePaths = {
-            projectDir + "/tessdata",                    // Project root tessdata
-            projectDir + "\\tessdata",                   // Windows style
-            "tessdata",                                  // Relative path
-            "src/main/resources/tessdata",
+        String[] paths = {
+            System.getProperty("user.dir") + "/tessdata",
+            System.getProperty("user.dir") + "\\tessdata",
+            "tessdata",
             System.getenv("TESSDATA_PREFIX"),
-            "C:/Program Files/Tesseract-OCR/tessdata",
-            "C:/Program Files (x86)/Tesseract-OCR/tessdata",
-            "/usr/share/tesseract-ocr/4.00/tessdata",
-            "/usr/share/tesseract-ocr/tessdata",
-            "/usr/local/share/tessdata"
+            "C:/Program Files/Tesseract-OCR/tessdata"
         };
 
-        for (String path : possiblePaths) {
-            if (path != null) {
-                File tessdataDir = new File(path);
-                File engFile = new File(path, "eng.traineddata");
-                if (tessdataDir.exists() && engFile.exists()) {
-                    System.out.println("[OCR] Found tessdata at: " + tessdataDir.getAbsolutePath());
-                    return tessdataDir.getAbsolutePath();
-                }
+        for (String p : paths) {
+            if (p != null && new File(p, "eng.traineddata").exists()) {
+                return new File(p).getAbsolutePath();
             }
         }
-
-        System.out.println("[OCR WARNING] Tessdata path not found. Using Tess4J bundled data.");
         return null;
     }
 
     /**
-     * Performs OCR on a cropped license plate image (OpenCV Mat).
+     * Simple preprocessing for OCR - resize and Otsu threshold.
+     * Tesseract handles most binarization internally.
      *
-     * <p>Why this approach:</p>
-     * <ul>
-     *   <li>Tess4J requires a File or BufferedImage, not OpenCV Mat</li>
-     *   <li>We save the Mat temporarily, perform OCR, then clean up</li>
-     *   <li>Temporary file ensures compatibility across all platforms</li>
-     * </ul>
-     *
-     * <p>Processing steps:</p>
-     * <ol>
-     *   <li>Validate input Mat is not null or empty</li>
-     *   <li>Save Mat to temporary file</li>
-     *   <li>Run Tesseract OCR on the file</li>
-     *   <li>Clean up temporary file</li>
-     *   <li>Post-process and return result</li>
-     * </ol>
-     *
-     * @param plateMat The cropped license plate image as OpenCV Mat
-     * @return Recognized text from the plate, or empty string if failed
+     * @param plate     The plate image to preprocess
+     * @param imageName Name for saving debug image
+     * @return Preprocessed binary image
      */
-    public String recognizePlate(Mat plateMat) {
-        // Validate input
+    private Mat preprocessForOcr(Mat plate, String imageName) {
+        Mat result = plate.clone();
+
+        // Resize small images (Tesseract works better with larger images)
+        if (result.width() < 200) {
+            double scale = 200.0 / result.width();
+            Imgproc.resize(result, result, new Size(result.width() * scale, result.height() * scale),
+                    0, 0, Imgproc.INTER_CUBIC);
+            System.out.println("[OCR] Resized to: " + result.width() + "x" + result.height());
+        }
+
+        // Convert to grayscale if color
+        if (result.channels() == 3) {
+            Mat gray = new Mat();
+            Imgproc.cvtColor(result, gray, Imgproc.COLOR_BGR2GRAY);
+            result = gray;
+        }
+
+        // Simple threshold to make text clearer
+        Mat binary = new Mat();
+        Imgproc.threshold(result, binary, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
+
+        // Check if we need to invert (text should be dark on light background)
+        double mean = Core.mean(binary).val[0];
+        if (mean < 127) {
+            Core.bitwise_not(binary, binary);
+        }
+
+        // Save debug image with proper name
+        if (imageName != null && !imageName.isEmpty()) {
+            String debugPath = DEBUG_OCR_DIR + "/" + imageName + ".jpg";
+            Imgcodecs.imwrite(debugPath, binary);
+            System.out.println("[DEBUG] Saved: " + debugPath);
+        }
+
+        return binary;
+    }
+
+    /**
+     * Performs OCR on a cropped license plate image.
+     *
+     * @param plateMat  Cropped plate image
+     * @param imageName Name of the source image (for debug output)
+     * @return Recognized text, or empty string if failed
+     */
+    public String recognizePlate(Mat plateMat, String imageName) {
         if (plateMat == null || plateMat.empty()) {
-            System.err.println("[OCR ERROR] Input Mat is null or empty!");
+            System.err.println("[OCR] Error: Empty input");
             return "";
         }
 
-        System.out.println("[OCR] Starting plate recognition...");
-        System.out.println("[OCR] Input image size: " + plateMat.width() + "x" + plateMat.height());
+        System.out.println("[OCR] Input: " + plateMat.width() + "x" + plateMat.height());
 
+        Mat processed = preprocessForOcr(plateMat, imageName);
         Path tempFile = null;
+
         try {
-            // Create temporary file for the plate image
-            tempFile = Files.createTempFile(TEMP_FILE_PREFIX, ".png");
-            String tempPath = tempFile.toAbsolutePath().toString();
+            tempFile = Files.createTempFile("plate_", ".png");
+            Imgcodecs.imwrite(tempFile.toString(), processed);
 
-            // Save Mat to temporary file
-            boolean saved = Imgcodecs.imwrite(tempPath, plateMat);
-            if (!saved) {
-                System.err.println("[OCR ERROR] Failed to save temporary image!");
-                return "";
-            }
-            System.out.println("[OCR] Temporary file created: " + tempPath);
+            String result = tesseract.doOCR(tempFile.toFile());
+            String cleaned = cleanResult(result);
 
-            // Perform OCR
-            String rawResult = tesseract.doOCR(new File(tempPath));
+            System.out.println("[OCR] Raw: \"" + result.trim() + "\"");
+            System.out.println("[OCR] Clean: \"" + cleaned + "\"");
 
-            // Post-process the result
-            String cleanedResult = postProcessOcrResult(rawResult);
-
-            System.out.println("[OCR] Raw result: \"" + rawResult.trim() + "\"");
-            System.out.println("[OCR] Cleaned result: \"" + cleanedResult + "\"");
-
-            return cleanedResult;
+            return cleaned;
 
         } catch (TesseractException e) {
-            System.err.println("[OCR ERROR] Tesseract failed: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("[OCR] Tesseract error: " + e.getMessage());
             return "";
         } catch (Exception e) {
-            System.err.println("[OCR ERROR] Unexpected error: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("[OCR] Error: " + e.getMessage());
             return "";
         } finally {
-            // Clean up temporary file
             if (tempFile != null) {
-                try {
-                    Files.deleteIfExists(tempFile);
-                    System.out.println("[OCR] Temporary file cleaned up.");
-                } catch (Exception e) {
-                    System.err.println("[OCR WARNING] Could not delete temp file: " + e.getMessage());
-                }
+                try { Files.deleteIfExists(tempFile); } catch (Exception ignored) {}
             }
         }
     }
 
     /**
-     * Performs OCR directly on an image file.
+     * Performs OCR on a cropped license plate image (without image name).
      *
-     * <p>Why provide file-based method:</p>
-     * <ul>
-     *   <li>Avoids unnecessary Mat conversion if image is already saved</li>
-     *   <li>Useful for batch processing pre-saved plate images</li>
-     *   <li>Can be used for testing with sample images</li>
-     * </ul>
-     *
-     * @param imagePath Path to the license plate image file
-     * @return Recognized text from the plate, or empty string if failed
+     * @param plateMat Cropped plate image
+     * @return Recognized text, or empty string if failed
      */
-    public String recognizePlateFromFile(String imagePath) {
-        File imageFile = new File(imagePath);
-
-        if (!imageFile.exists()) {
-            System.err.println("[OCR ERROR] Image file not found: " + imagePath);
-            return "";
-        }
-
-        System.out.println("[OCR] Processing file: " + imagePath);
-
-        try {
-            String rawResult = tesseract.doOCR(imageFile);
-            String cleanedResult = postProcessOcrResult(rawResult);
-
-            System.out.println("[OCR] Raw result: \"" + rawResult.trim() + "\"");
-            System.out.println("[OCR] Cleaned result: \"" + cleanedResult + "\"");
-
-            return cleanedResult;
-
-        } catch (TesseractException e) {
-            System.err.println("[OCR ERROR] Tesseract failed: " + e.getMessage());
-            e.printStackTrace();
-            return "";
-        }
+    public String recognizePlate(Mat plateMat) {
+        return recognizePlate(plateMat, null);
     }
 
     /**
-     * Post-processes OCR result to clean up common issues.
-     *
-     * <p>Why post-processing is necessary:</p>
-     * <ul>
-     *   <li>OCR may include whitespace, newlines, or artifacts</li>
-     *   <li>Some characters may still be misread despite whitelist</li>
-     *   <li>Turkish plates have specific format rules we can validate</li>
-     *   <li>Removes any non-alphanumeric characters that slip through</li>
-     * </ul>
-     *
-     * <p>Processing steps:</p>
-     * <ol>
-     *   <li>Trim whitespace from both ends</li>
-     *   <li>Remove all spaces and newlines</li>
-     *   <li>Convert to uppercase (safety measure)</li>
-     *   <li>Remove any remaining non-alphanumeric characters</li>
-     * </ol>
-     *
-     * @param rawResult The raw OCR output string
-     * @return Cleaned license plate text
+     * Cleans OCR result - removes spaces and non-alphanumeric chars.
      */
-    private String postProcessOcrResult(String rawResult) {
-        if (rawResult == null || rawResult.isEmpty()) {
-            return "";
-        }
-
-        return rawResult
-                .trim()                              // Remove leading/trailing whitespace
-                .replaceAll("\\s+", "")              // Remove all whitespace
-                .toUpperCase()                       // Ensure uppercase
-                .replaceAll("[^A-Z0-9]", "");        // Keep only alphanumeric
+    private String cleanResult(String raw) {
+        if (raw == null) return "";
+        return raw.trim()
+                .toUpperCase()
+                .replaceAll("[^A-Z0-9]", "");
     }
 
-    /**
-     * Sets the tessdata path for Tesseract.
-     *
-     * <p>Why allow runtime path change:</p>
-     * <ul>
-     *   <li>Enables switching between different trained models</li>
-     *   <li>Useful for testing with different tessdata versions</li>
-     *   <li>Allows configuration after object creation</li>
-     * </ul>
-     *
-     * @param tessdataPath New path to tessdata directory
-     */
-    public void setTessdataPath(String tessdataPath) {
-        this.tessdataPath = tessdataPath;
-        if (tessdataPath != null && !tessdataPath.isEmpty()) {
-            tesseract.setDatapath(tessdataPath);
-            System.out.println("[OCR] Tessdata path updated: " + tessdataPath);
-        }
+    public void setTessdataPath(String path) {
+        this.tessdataPath = path;
+        if (path != null) tesseract.setDatapath(path);
     }
 
-    /**
-     * Gets the current tessdata path.
-     *
-     * @return Current tessdata path
-     */
     public String getTessdataPath() {
         return tessdataPath;
     }
 
-    /**
-     * Sets a custom character whitelist for OCR.
-     *
-     * <p>Why allow custom whitelist:</p>
-     * <ul>
-     *   <li>Different countries may have different plate characters</li>
-     *   <li>Some plates may include special characters (e.g., hyphens)</li>
-     *   <li>Testing with different configurations</li>
-     * </ul>
-     *
-     * @param whitelist New character whitelist string
-     */
     public void setWhitelist(String whitelist) {
         tesseract.setVariable("tessedit_char_whitelist", whitelist);
-        System.out.println("[OCR] Whitelist updated: " + whitelist);
     }
 
-    /**
-     * Sets the OCR language model.
-     *
-     * <p>Why configurable language:</p>
-     * <ul>
-     *   <li>Different languages have different character sets</li>
-     *   <li>May need to use custom trained models for plates</li>
-     *   <li>Some regions may benefit from specific language models</li>
-     * </ul>
-     *
-     * @param language Language code (e.g., "eng", "tur", "deu")
-     */
-    public void setLanguage(String language) {
-        tesseract.setLanguage(language);
-        System.out.println("[OCR] Language set to: " + language);
+    public void setLanguage(String lang) {
+        tesseract.setLanguage(lang);
     }
 }
 
