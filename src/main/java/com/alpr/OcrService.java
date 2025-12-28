@@ -70,12 +70,19 @@ public class OcrService {
     }
 
     private String findTessdataPath() {
+        String userDir = System.getProperty("user.dir");
+        String separator = File.separator;
+
         String[] paths = {
-            System.getProperty("user.dir") + "/tessdata",
-            System.getProperty("user.dir") + "\\tessdata",
+            userDir + separator + "tessdata",
             "tessdata",
             System.getenv("TESSDATA_PREFIX"),
-            "C:/Program Files/Tesseract-OCR/tessdata"
+            // Platform-specific fallback paths
+            isWindows() ? "C:/Program Files/Tesseract-OCR/tessdata" : "/usr/share/tesseract-ocr/4.00/tessdata",
+            isWindows() ? null : "/usr/share/tesseract-ocr/4.00/tessdata",
+            isWindows() ? null : "/usr/share/tessdata",
+            isWindows() ? null : "/usr/local/share/tessdata",
+            isMac() ? "/opt/homebrew/share/tessdata" : null
         };
 
         for (String p : paths) {
@@ -84,6 +91,14 @@ public class OcrService {
             }
         }
         return null;
+    }
+
+    private static boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase().contains("win");
+    }
+
+    private static boolean isMac() {
+        return System.getProperty("os.name").toLowerCase().contains("mac");
     }
 
     /**
@@ -212,4 +227,3 @@ public class OcrService {
         tesseract.setLanguage(lang);
     }
 }
-
