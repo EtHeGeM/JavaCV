@@ -1,6 +1,10 @@
 package com.alpr;
 
+import nu.pattern.OpenCV;
+import org.opencv.core.Core;
 import org.opencv.core.Mat;
+
+import java.io.File;
 
 /**
  * Main - Entry Point for the ALPR (Automatic License Plate Recognition) System
@@ -20,6 +24,20 @@ import org.opencv.core.Mat;
  * @version 1.0
  */
 public class Main {
+
+    /**
+     * Static initializer to load OpenCV native libraries.
+     *
+     * <p>Why we load OpenCV here in Main:</p>
+     * <ul>
+     *   <li>Ensures OpenCV is loaded before ANY OpenCV class is used</li>
+     *   <li>Main is the entry point, so this runs first</li>
+     *   <li>Prevents UnsatisfiedLinkError when using OpenCV classes</li>
+     * </ul>
+     */
+    static {
+        OpenCV.loadShared();
+    }
 
     /**
      * Application entry point.
@@ -42,6 +60,11 @@ public class Main {
         System.out.println("==============================================");
         System.out.println();
 
+        // Verify OpenCV is loaded correctly
+        System.out.println("[INFO] OpenCV Version: " + Core.VERSION);
+        System.out.println("[INFO] OpenCV loaded successfully!");
+        System.out.println();
+
         // Determine the input image path
         // Why: Allow flexibility for testing with different images
         // Default path is provided for convenience during development
@@ -54,6 +77,21 @@ public class Main {
             System.out.println("[INFO] No image path provided. Using default: " + imagePath);
         }
 
+        // Check if the image file exists, if not generate a test image
+        // Why: This allows the application to run without requiring an external image
+        // Useful for initial testing and development
+        File imageFile = new File(imagePath);
+        if (!imageFile.exists()) {
+            System.out.println("[WARN] Image file not found: " + imagePath);
+            System.out.println("[INFO] Generating a synthetic test image...");
+
+            if (!TestImageGenerator.generateTestImage(imagePath)) {
+                System.err.println("[FAILURE] Could not generate test image!");
+                System.exit(1);
+            }
+            System.out.println();
+        }
+
         // Create the PlateDetector instance
         // Why: PlateDetector encapsulates all image processing logic
         // This separation makes the code modular and testable
@@ -62,7 +100,7 @@ public class Main {
         // Execute the preprocessing pipeline
         // Why: Preprocessing prepares the image for license plate detection
         // The returned Mat contains the edge-detected image
-        System.out.println("\n[STEP] Starting image preprocessing...\n");
+        System.out.println("[STEP] Starting image preprocessing...\n");
         Mat processedImage = detector.preprocessImage(imagePath);
 
         // Verify preprocessing was successful
@@ -85,4 +123,3 @@ public class Main {
         System.out.println("==============================================");
     }
 }
-

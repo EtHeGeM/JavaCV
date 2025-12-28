@@ -1,6 +1,5 @@
 package com.alpr;
 
-import nu.pattern.OpenCV;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -20,25 +19,13 @@ import org.opencv.imgproc.Imgproc;
  *   <li>Canny edge detection highlights the rectangular shape of license plates</li>
  * </ul>
  *
+ * <p><b>Note:</b> OpenCV native libraries must be loaded before using this class.
+ * This is handled by the Main class static initializer.</p>
+ *
  * @author ALPR Academic Project
  * @version 1.0
  */
 public class PlateDetector {
-
-    /**
-     * Static initializer block to load OpenCV native libraries.
-     *
-     * <p>Why we use OpenCV.loadShared():</p>
-     * <ul>
-     *   <li>The org.openpnp OpenCV wrapper bundles native libraries for all platforms</li>
-     *   <li>loadShared() extracts and loads the appropriate native library for the current OS</li>
-     *   <li>This must be called BEFORE any OpenCV operations are performed</li>
-     *   <li>Static block ensures it runs exactly once when the class is first loaded</li>
-     * </ul>
-     */
-    static {
-        OpenCV.loadShared();
-    }
 
     /**
      * Preprocesses an input image through a series of computer vision operations
@@ -125,4 +112,3 @@ public class PlateDetector {
         return cannyImage;
     }
 }
-
