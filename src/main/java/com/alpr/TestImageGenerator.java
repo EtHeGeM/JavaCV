@@ -30,8 +30,8 @@ public class TestImageGenerator {
      *
      * <p>The generated image contains:</p>
      * <ul>
-     *   <li>A gray background simulating a vehicle body</li>
-     *   <li>A white rectangle simulating a license plate</li>
+     *   <li>A dark background simulating a vehicle body</li>
+     *   <li>A white rectangle simulating a license plate with clear borders</li>
      *   <li>Text on the plate for OCR testing</li>
      * </ul>
      *
@@ -44,28 +44,31 @@ public class TestImageGenerator {
             // Why: This is a common resolution that works well for testing
             Mat image = new Mat(480, 640, CvType.CV_8UC3);
 
-            // Fill with a gray color (simulating a car body)
-            // Why: Gray provides good contrast for the white license plate
-            image.setTo(new Scalar(128, 128, 128));
+            // Fill with a dark blue/gray color (simulating a car body)
+            // Why: Dark background provides excellent contrast for the white license plate
+            image.setTo(new Scalar(60, 60, 80));
 
-            // Draw a white rectangle simulating a license plate
+            // Draw a white filled rectangle simulating a license plate
             // Why: License plates are typically white/light colored rectangles
-            // Position: roughly center-bottom of the image (where plates usually are)
-            Point plateTopLeft = new Point(200, 300);
-            Point plateBottomRight = new Point(440, 380);
+            // Position: center of the image for easy detection
+            // Size: 240x80 pixels gives aspect ratio of 3.0 (within our 2.5-5.5 range)
+            Point plateTopLeft = new Point(200, 200);
+            Point plateBottomRight = new Point(440, 280);
+
+            // Draw white filled plate background
             Imgproc.rectangle(image, plateTopLeft, plateBottomRight,
                     new Scalar(255, 255, 255), -1); // -1 = filled rectangle
 
-            // Draw a black border around the plate
-            // Why: License plates have a visible border/frame
+            // Draw a thick black border around the plate
+            // Why: License plates have a visible border/frame that helps with edge detection
             Imgproc.rectangle(image, plateTopLeft, plateBottomRight,
-                    new Scalar(0, 0, 0), 2);
+                    new Scalar(0, 0, 0), 3);
 
             // Add simulated plate text
             // Why: Provides content for OCR testing
-            Point textOrigin = new Point(220, 355);
+            Point textOrigin = new Point(210, 255);
             Imgproc.putText(image, "34 ABC 123", textOrigin,
-                    Imgproc.FONT_HERSHEY_SIMPLEX, 1.2,
+                    Imgproc.FONT_HERSHEY_SIMPLEX, 1.0,
                     new Scalar(0, 0, 0), 2);
 
             // Save the generated image
@@ -74,6 +77,7 @@ public class TestImageGenerator {
             if (success) {
                 System.out.println("[INFO] Test image generated: " + outputPath);
                 System.out.println("[INFO] Image size: " + image.cols() + "x" + image.rows());
+                System.out.println("[INFO] Plate region: 240x80 pixels (aspect ratio: 3.0)");
             } else {
                 System.err.println("[ERROR] Failed to save test image: " + outputPath);
             }
