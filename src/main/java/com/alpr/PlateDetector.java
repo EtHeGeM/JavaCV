@@ -39,6 +39,8 @@ public class PlateDetector {
     private static final int DEFAULT_CANNY_THRESHOLD2 = 150;
     private static final double DEFAULT_MIN_ASPECT_RATIO = 2.0;
     private static final double DEFAULT_MAX_ASPECT_RATIO = 7.0;
+    private static final int DEFAULT_DILATE_KERNEL_SIZE = 3;
+    private static final int DEFAULT_DILATE_ITERATIONS = 2;
 
     // Instance tunable parameters
     private int blurKernel = DEFAULT_BLUR_KERNEL;
@@ -46,6 +48,8 @@ public class PlateDetector {
     private int cannyThreshold2 = DEFAULT_CANNY_THRESHOLD2;
     private double minAspectRatio = DEFAULT_MIN_ASPECT_RATIO;
     private double maxAspectRatio = DEFAULT_MAX_ASPECT_RATIO;
+    private int dilateKernelSize = DEFAULT_DILATE_KERNEL_SIZE;
+    private int dilateIterations = DEFAULT_DILATE_ITERATIONS;
 
     // Haar parameters
     private double haarScaleFactor = 1.05;
@@ -140,6 +144,14 @@ public class PlateDetector {
         this.haarScaleFactor = factor;
     }
 
+    public void setDilateKernelSize(int size) {
+        this.dilateKernelSize = (size < 1) ? 1 : size;
+    }
+
+    public void setDilateIterations(int iterations) {
+        this.dilateIterations = (iterations < 0) ? 0 : iterations;
+    }
+
     public void setHaarMinNeighbors(int neighbors) {
         this.haarMinNeighbors = neighbors;
     }
@@ -155,6 +167,8 @@ public class PlateDetector {
 
     // ==================== INTERMEDIATE IMAGE GETTERS ====================
 
+    public int getDilateKernelSize() { return dilateKernelSize; }
+    public int getDilateIterations() { return dilateIterations; }
     public Mat getLastGrayImage() { return lastGrayImage; }
     public Mat getLastFilteredImage() { return lastFilteredImage; }
     public Mat getLastEdgeImage() { return lastEdgeImage; }
@@ -209,8 +223,13 @@ public class PlateDetector {
 
         // Step 6: Dilate
         lastDilatedImage = new Mat();
-        Mat dilateKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(3, 3));
-        Imgproc.dilate(closedImage, lastDilatedImage, dilateKernel, new Point(-1, -1), 2);
+        if (dilateIterations > 0) {
+            Mat dilateKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT,
+                new Size(dilateKernelSize, dilateKernelSize));
+            Imgproc.dilate(closedImage, lastDilatedImage, dilateKernel, new Point(-1, -1), dilateIterations);
+        } else {
+            closedImage.copyTo(lastDilatedImage);
+        }
 
         return lastDilatedImage;
     }
