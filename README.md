@@ -1,9 +1,9 @@
-#  ALPR Tuning Tool - Plaka Tanıma Optimizasyon Aracı
+# 🚗 ALPR Tuning Tool - Plaka Tanıma Optimizasyon Aracı
 
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.9.0-blue)
 ![Tesseract](https://img.shields.io/badge/Tesseract-5.11.0-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
+![License](https://img.shields.io/badge/License-GPL--3.0-blue)
 
 ##  İçindekiler
 
@@ -610,6 +610,23 @@ Türk plakaları şu formattadır: `[2 rakam][1-3 harf][2-4 rakam]`
 
 ##  Lisans
 
+Bu proje **GNU General Public License v3.0 (GPL-3.0)** altında lisanslanmıştır.
+
+Bu lisans şunları sağlar:
+- ✅ Ticari kullanım
+- ✅ Değiştirme
+- ✅ Dağıtım
+- ✅ Patent kullanımı
+- ✅ Özel kullanım
+
+Koşullar:
+- 📋 Kaynak kodu açık olmalı
+- 📋 Lisans ve telif hakkı bildirimi dahil edilmeli
+- 📋 Aynı lisans kullanılmalı (copyleft)
+- 📋 Değişiklikler belirtilmeli
+
+Detaylar için [LICENSE](LICENSE) dosyasına veya [GNU GPL v3.0](https://www.gnu.org/licenses/gpl-3.0.html) sayfasına bakın.
+
 ---
 
 ##  Sorun Giderme
@@ -643,4 +660,3 @@ Sorunlar için GitHub Issues kullanın veya proje ekibiyle iletişime geçin.
 <p align="center">
   <i>Plaka tanıma sistemlerinde optimizasyon için geliştirilmiştir.</i>
 </p>
-
