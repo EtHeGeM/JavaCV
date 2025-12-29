@@ -7,6 +7,7 @@ import org.opencv.core.Scalar;
 import org.opencv.imgcodecs.Imgcodecs;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Main - Entry Point for the ALPR (Automatic License Plate Recognition) System
@@ -30,11 +32,12 @@ import java.util.List;
  * </ol>
  *
  * @author ALPR Academic Project - Mert Özbay, Defne Oktem, Ata Atay, Ayşe Ceren Sarıgül, Aylin Baki, Ahmad Ali al Ghazi
- * @version 2.0
+ * @version 2.1 - Added config file support
  */
 public class Main {
 
     private static final String[] IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"};
+    private static final String CONFIG_FILE = "alpr_config.properties";
 
     // Debug statistics
     private static int totalImages = 0;
@@ -45,7 +48,7 @@ public class Main {
     private static int matchedCharacters = 0;
     private static List<DebugResult> debugResults = new ArrayList<>();
 
-    // Current parameters (will be read from detector)
+    // Current parameters (will be read from config file or detector defaults)
     private static int currentBlurKernel;
     private static int currentCannyT1;
     private static int currentCannyT2;
@@ -68,6 +71,53 @@ public class Main {
     }
 
     /**
+     * Loads configuration from alpr_config.properties file.
+     * Falls back to PlateDetector defaults if config file doesn't exist.
+     *
+     * @param detector The PlateDetector instance to configure
+     * @return true if config was loaded from file, false if using defaults
+     */
+    private static boolean loadConfigFromFile(PlateDetector detector) {
+        File configFile = new File(CONFIG_FILE);
+
+        if (!configFile.exists()) {
+            System.out.println("[CONFIG] Config file not found, using defaults");
+            return false;
+        }
+
+        try (FileInputStream fis = new FileInputStream(configFile)) {
+            Properties props = new Properties();
+            props.load(fis);
+
+            // Read parameters from config file
+            currentBlurKernel = Integer.parseInt(props.getProperty("blur.kernel", "11"));
+            currentCannyT1 = Integer.parseInt(props.getProperty("canny.threshold1", "50"));
+            currentCannyT2 = Integer.parseInt(props.getProperty("canny.threshold2", "150"));
+            currentDilateKernel = Integer.parseInt(props.getProperty("dilate.kernel", "3"));
+            currentDilateIter = Integer.parseInt(props.getProperty("dilate.iterations", "2"));
+            currentMinAR = Double.parseDouble(props.getProperty("aspect.ratio.min", "2.0"));
+            currentMaxAR = Double.parseDouble(props.getProperty("aspect.ratio.max", "7.0"));
+
+            // Apply to detector
+            detector.setBlurKernel(currentBlurKernel);
+            detector.setCannyThreshold1(currentCannyT1);
+            detector.setCannyThreshold2(currentCannyT2);
+            detector.setDilateKernelSize(currentDilateKernel);
+            detector.setDilateIterations(currentDilateIter);
+            detector.setMinAspectRatio(currentMinAR);
+            detector.setMaxAspectRatio(currentMaxAR);
+
+            System.out.println("[CONFIG] Loaded configuration from: " + CONFIG_FILE);
+            return true;
+
+        } catch (Exception e) {
+            System.err.println("[CONFIG] Error loading config: " + e.getMessage());
+            System.out.println("[CONFIG] Using default values");
+            return false;
+        }
+    }
+
+    /**
      * Application entry point.
      *
      * @param args Command-line arguments. args[0] = image path (optional)
@@ -79,15 +129,20 @@ public class Main {
         System.out.println("[INFO] OpenCV Version: " + Core.VERSION);
         System.out.println();
 
-        // Initialize detector to get default parameters
+        // Initialize detector
         PlateDetector tempDetector = new PlateDetector();
-        currentBlurKernel = tempDetector.getBlurKernel();
-        currentCannyT1 = tempDetector.getCannyThreshold1();
-        currentCannyT2 = tempDetector.getCannyThreshold2();
-        currentDilateKernel = tempDetector.getDilateKernelSize();
-        currentDilateIter = tempDetector.getDilateIterations();
-        currentMinAR = tempDetector.getMinAspectRatio();
-        currentMaxAR = tempDetector.getMaxAspectRatio();
+
+        // Try to load config from file, otherwise use defaults
+        if (!loadConfigFromFile(tempDetector)) {
+            // Use detector defaults
+            currentBlurKernel = tempDetector.getBlurKernel();
+            currentCannyT1 = tempDetector.getCannyThreshold1();
+            currentCannyT2 = tempDetector.getCannyThreshold2();
+            currentDilateKernel = tempDetector.getDilateKernelSize();
+            currentDilateIter = tempDetector.getDilateIterations();
+            currentMinAR = tempDetector.getMinAspectRatio();
+            currentMaxAR = tempDetector.getMaxAspectRatio();
+        }
 
         // Determine input path (file or directory)
         String inputPath = args.length > 0 ? args[0] : "src/plates";
