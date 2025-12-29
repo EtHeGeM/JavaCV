@@ -1,11 +1,11 @@
-# 🚗 ALPR Tuning Tool - Plaka Tanıma Optimizasyon Aracı
+#  ALPR Tuning Tool - Plaka Tanıma Optimizasyon Aracı
 
 ![Java](https://img.shields.io/badge/Java-17-orange)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.9.0-blue)
 ![Tesseract](https://img.shields.io/badge/Tesseract-5.11.0-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-## 📋 İçindekiler
+##  İçindekiler
 
 - [Proje Hakkında](#-proje-hakkında)
 - [Özellikler](#-özellikler)
@@ -21,11 +21,11 @@
 
 ---
 
-## 🎯 Proje Hakkında
+##  Proje Hakkında
 
 **ALPR Tuning Tool**, plaka tanıma sistemlerinde kullanılan görüntü işleme parametrelerinin optimizasyonunu kolaylaştırmak için geliştirilmiş bir akademik projedir.
 
-### ⚠️ Önemli Not
+###  Önemli Not
 
 > Bu proje **tam bir plaka tanıma sistemi değildir**. Asıl amacı, plaka tanıma sistemlerinde kullanılan:
 > - Görüntü işleme parametrelerini (blur, canny, dilate vb.)
@@ -45,9 +45,9 @@ Plaka tanıma sistemleri geliştirirken en zorlu kısım, farklı aydınlatma ko
 
 ---
 
-## ✨ Özellikler
+##  Özellikler
 
-### 🔍 İkili Tespit Sistemi (Dual Detection)
+###  İkili Tespit Sistemi (Dual Detection)
 
 | Yöntem | Açıklama | Renk Kodu |
 |--------|----------|-----------|
@@ -55,14 +55,14 @@ Plaka tanıma sistemleri geliştirirken en zorlu kısım, farklı aydınlatma ko
 | **Geometric Detection** | Kontur analizi ve aspect ratio filtreleme | 🔵 Mavi |
 | **High Confidence** | Her iki yöntemin de tespit ettiği bölgeler | 🔴 Kırmızı |
 
-### 🎛️ Ayarlanabilir Parametreler
+### 🎛 Ayarlanabilir Parametreler
 
 - **Bilateral Filter Kernel**: Görüntü yumuşatma
 - **Canny Threshold 1 & 2**: Kenar tespiti hassasiyeti
 - **Dilate Kernel & Iterations**: Morfolojik genişletme
 - **Aspect Ratio (Min/Max)**: Plaka en-boy oranı filtresi
 
-### 📊 Ek Özellikler
+###  Ek Özellikler
 
 - ✅ Gerçek zamanlı önizleme (6 farklı mod)
 - ✅ OCR sonuçlarını görüntüleme
@@ -73,7 +73,7 @@ Plaka tanıma sistemleri geliştirirken en zorlu kısım, farklı aydınlatma ko
 
 ---
 
-## 💻 Gereksinimler
+##  Gereksinimler
 
 ### Sistem Gereksinimleri
 
@@ -93,7 +93,7 @@ Plaka tanıma sistemleri geliştirirken en zorlu kısım, farklı aydınlatma ko
 
 ---
 
-## 🚀 Kurulum
+##  Kurulum
 
 ### 1. Repoyu Klonlayın
 
@@ -173,7 +173,7 @@ java -jar target/license-plate-recognition-1.0-SNAPSHOT.jar
 
 ---
 
-## 📖 Kullanım
+##  Kullanım
 
 ### GUI Arayüzü
 
@@ -201,46 +201,46 @@ java -jar target/license-plate-recognition-1.0-SNAPSHOT.jar
 
 ---
 
-## 📁 Proje Yapısı
+##  Proje Yapısı
 
 ```
 JavaCV/
-├── 📄 pom.xml                          # Maven yapılandırması
-├── 📄 alpr_config.properties           # Otomatik kaydedilen ayarlar
-├── 📄 alpr_summary.csv                 # Özet sonuç raporu
-├── 📄 haarcascade_russian_plate_number.xml  # Haar Cascade modeli
+├──  pom.xml                          # Maven yapılandırması
+├──  alpr_config.properties           # Otomatik kaydedilen ayarlar
+├──  alpr_summary.csv                 # Özet sonuç raporu
+├──  haarcascade_russian_plate_number.xml  # Haar Cascade modeli
 │
-├── 📁 src/
-│   ├── 📁 main/
-│   │   ├── 📁 java/com/alpr/
-│   │   │   ├── 📄 TuningGUI.java       # Ana GUI uygulaması
-│   │   │   ├── 📄 PlateDetector.java   # Plaka tespit motoru
-│   │   │   ├── 📄 OcrService.java      # Tesseract OCR servisi
-│   │   │   ├── 📄 DetectionResult.java # Tespit sonuç modeli
-│   │   │   ├── 📄 Main.java            # CLI giriş noktası
-│   │   │   └── 📄 TestImageGenerator.java # Test görüntüsü oluşturucu
-│   │   └── 📁 resources/
-│   └── 📁 plates/                      # Test görüntüleri klasörü
+├──  src/
+│   ├──  main/
+│   │   ├──  java/com/alpr/
+│   │   │   ├──  TuningGUI.java       # Ana GUI uygulaması
+│   │   │   ├──  PlateDetector.java   # Plaka tespit motoru
+│   │   │   ├──  OcrService.java      # Tesseract OCR servisi
+│   │   │   ├──  DetectionResult.java # Tespit sonuç modeli
+│   │   │   ├──  Main.java            # CLI giriş noktası
+│   │   │   └──  TestImageGenerator.java # Test görüntüsü oluşturucu
+│   │   └──  resources/
+│   └──  plates/                      # Test görüntüleri klasörü
 │
-├── 📁 tessdata/
-│   └── 📄 eng.traineddata              # Tesseract dil dosyası
+├──  tessdata/
+│   └──  eng.traineddata              # Tesseract dil dosyası
 │
-├── 📁 debug_output/                    # Debug görüntüleri
-│   ├── 📁 step1_grayscale/
-│   ├── 📁 step2_filtered/
-│   ├── 📁 step3_canny/
-│   ├── 📁 step3b_dilated/
-│   ├── 📁 step4_detected_plate/
-│   ├── 📁 step5_ocr_preprocessed/
-│   ├── 📁 haar_plates/                 # Haar ile tespit edilen plakalar
-│   └── 📁 geo_plates/                  # Geometrik tespit edilen plakalar
+├──  debug_output/                    # Debug görüntüleri
+│   ├──  step1_grayscale/
+│   ├──  step2_filtered/
+│   ├──  step3_canny/
+│   ├──  step3b_dilated/
+│   ├──  step4_detected_plate/
+│   ├──  step5_ocr_preprocessed/
+│   ├──  haar_plates/                 # Haar ile tespit edilen plakalar
+│   └──  geo_plates/                  # Geometrik tespit edilen plakalar
 │
-└── 📁 target/                          # Maven build çıktıları
+└──  target/                          # Maven build çıktıları
 ```
 
 ---
 
-## 📚 Java Sınıfları ve Metodları
+##  Java Sınıfları ve Metodları
 
 ### 1. TuningGUI.java
 
@@ -501,7 +501,7 @@ Test görüntüsü oluşturma utility sınıfı.
 
 ---
 
-## ⚙️ Parametreler ve Optimizasyon
+## ️ Parametreler ve Optimizasyon
 
 ### Görüntü İşleme Pipeline'ı
 
@@ -548,7 +548,7 @@ Türk plakaları şu formattadır: `[2 rakam][1-3 harf][2-4 rakam]`
 
 ---
 
-## 📊 Debug Çıktıları
+##  Debug Çıktıları
 
 ### Klasör Yapısı
 
@@ -570,7 +570,7 @@ Türk plakaları şu formattadır: `[2 rakam][1-3 harf][2-4 rakam]`
 
 ---
 
-## 🔧 İyileştirme Önerileri
+##  İyileştirme Önerileri
 
 ### Kısa Vadeli
 
@@ -595,7 +595,7 @@ Türk plakaları şu formattadır: `[2 rakam][1-3 harf][2-4 rakam]`
 
 ---
 
-## 👥 Katkıda Bulunanlar
+##  Katkıda Bulunanlar
 
 **ALPR Academic Project Team:**
 
@@ -608,13 +608,11 @@ Türk plakaları şu formattadır: `[2 rakam][1-3 harf][2-4 rakam]`
 
 ---
 
-## 📄 Lisans
-
-Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına bakın.
+##  Lisans
 
 ---
 
-## 🆘 Sorun Giderme
+##  Sorun Giderme
 
 ### Sık Karşılaşılan Hatalar
 
