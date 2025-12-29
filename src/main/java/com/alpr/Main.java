@@ -23,7 +23,7 @@ import java.util.Arrays;
  *   <li>Draw bounding box and save result</li>
  * </ol>
  *
- * @author ALPR Academic Project
+ * @author ALPR Academic Project - Mert Özbay, Defne Oktem, Ata Atay, Ayşe Ceren Sarıgül, Aylin Baki, Ahmad Ali al Ghazi
  * @version 2.0
  */
 public class Main {
