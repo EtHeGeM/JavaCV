@@ -13,25 +13,29 @@ import javax.swing.event.ChangeListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.File;
+import java.io.*;
 import java.util.ArrayList;
-import java.util.Hashtable;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * TuningGUI - Dual-Detection Audit Tool for ALPR
  *
  * @author ALPR Academic Project
- * @version 2.1 - Separate OCR for each detection method
+ * @version 2.3 - Added persistent configuration with auto-save
  */
 public class TuningGUI extends JFrame {
+
+    private static final String CONFIG_FILE = "alpr_config.properties";
+    private static final int SAVE_DELAY_MS = 1000; // 1 saniye bekle (debounce)
 
     private ImagePanel imagePanel;
 
     private JSlider blurSlider;
     private JSlider canny1Slider;
     private JSlider canny2Slider;
+    private JSlider dilateKernelSlider;
+    private JSlider dilateIterSlider;
     private JSpinner minARSpinner;
     private JSpinner maxARSpinner;
     private JComboBox<String> previewModeCombo;
@@ -53,6 +57,12 @@ public class TuningGUI extends JFrame {
     private String currentImagePath;
     private boolean autoProcess = true;
 
+    // Configuration
+    private Properties config;
+
+    // Debounce timer for auto-save
+    private Timer saveTimer;
+
     private static final String[] PREVIEW_MODES = {
         "Original + Overlays", "Grayscale", "Filtered", "Canny Edges", "Dilated", "Detection Result"
     };
@@ -73,9 +83,115 @@ public class TuningGUI extends JFrame {
         super("ALPR Dual-Detection Audit Tool");
         detector = new PlateDetector();
         ocrService = new OcrService();
+        config = loadConfig();
         initializeUI();
+        applyConfig();
         checkResources();
     }
+
+    // ==================== CONFIGURATION ====================
+
+    private Properties loadConfig() {
+        Properties props = new Properties();
+        File configFile = new File(CONFIG_FILE);
+
+        if (configFile.exists()) {
+            try (FileInputStream fis = new FileInputStream(configFile)) {
+                props.load(fis);
+                System.out.println("[CONFIG] Loaded configuration from: " + CONFIG_FILE);
+            } catch (IOException e) {
+                System.err.println("[CONFIG] Failed to load config: " + e.getMessage());
+            }
+        } else {
+            // Set defaults
+            props.setProperty("blur.kernel", "11");
+            props.setProperty("canny.threshold1", "50");
+            props.setProperty("canny.threshold2", "150");
+            props.setProperty("dilate.kernel", "3");
+            props.setProperty("dilate.iterations", "2");
+            props.setProperty("aspect.min", "2.0");
+            props.setProperty("aspect.max", "7.0");
+            props.setProperty("show.haar", "true");
+            props.setProperty("show.geo", "true");
+            props.setProperty("show.overlap", "true");
+            props.setProperty("last.image.path", "");
+            System.out.println("[CONFIG] Using default configuration");
+        }
+
+        return props;
+    }
+
+    private void saveConfig() {
+        try (FileOutputStream fos = new FileOutputStream(CONFIG_FILE)) {
+            // Update config from current UI values
+            int blurValue = blurSlider.getValue();
+            if (blurValue % 2 == 0) blurValue++;
+            int dilateKernel = dilateKernelSlider.getValue();
+            if (dilateKernel % 2 == 0) dilateKernel++;
+
+            config.setProperty("blur.kernel", String.valueOf(blurValue));
+            config.setProperty("canny.threshold1", String.valueOf(canny1Slider.getValue()));
+            config.setProperty("canny.threshold2", String.valueOf(canny2Slider.getValue()));
+            config.setProperty("dilate.kernel", String.valueOf(dilateKernel));
+            config.setProperty("dilate.iterations", String.valueOf(dilateIterSlider.getValue()));
+            config.setProperty("aspect.min", String.valueOf(minARSpinner.getValue()));
+            config.setProperty("aspect.max", String.valueOf(maxARSpinner.getValue()));
+            config.setProperty("show.haar", String.valueOf(showHaarCheck.isSelected()));
+            config.setProperty("show.geo", String.valueOf(showGeoCheck.isSelected()));
+            config.setProperty("show.overlap", String.valueOf(showOverlapCheck.isSelected()));
+            if (currentImagePath != null) {
+                config.setProperty("last.image.path", currentImagePath);
+            }
+
+            config.store(fos, "ALPR Configuration - Auto-saved");
+            System.out.println("[CONFIG] Configuration saved to: " + CONFIG_FILE);
+        } catch (IOException e) {
+            System.err.println("[CONFIG] Failed to save config: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Schedule auto-save with debounce mechanism.
+     * Waits for user to stop changing values before saving.
+     */
+    private void scheduleAutoSave() {
+        if (saveTimer != null) {
+            saveTimer.stop();
+        }
+        saveTimer = new Timer(SAVE_DELAY_MS, e -> {
+            saveConfig();
+            saveTimer.stop();
+        });
+        saveTimer.setRepeats(false);
+        saveTimer.start();
+    }
+
+    private void applyConfig() {
+        try {
+            blurSlider.setValue(Integer.parseInt(config.getProperty("blur.kernel", "11")));
+            canny1Slider.setValue(Integer.parseInt(config.getProperty("canny.threshold1", "50")));
+            canny2Slider.setValue(Integer.parseInt(config.getProperty("canny.threshold2", "150")));
+            dilateKernelSlider.setValue(Integer.parseInt(config.getProperty("dilate.kernel", "3")));
+            dilateIterSlider.setValue(Integer.parseInt(config.getProperty("dilate.iterations", "2")));
+            minARSpinner.setValue(Double.parseDouble(config.getProperty("aspect.min", "2.0")));
+            maxARSpinner.setValue(Double.parseDouble(config.getProperty("aspect.max", "7.0")));
+            showHaarCheck.setSelected(Boolean.parseBoolean(config.getProperty("show.haar", "true")));
+            showGeoCheck.setSelected(Boolean.parseBoolean(config.getProperty("show.geo", "true")));
+            showOverlapCheck.setSelected(Boolean.parseBoolean(config.getProperty("show.overlap", "true")));
+
+            // Load last image if exists
+            String lastImagePath = config.getProperty("last.image.path", "");
+            if (!lastImagePath.isEmpty() && new File(lastImagePath).exists()) {
+                currentImagePath = lastImagePath;
+                statusLabel.setText("Loaded last image: " + new File(lastImagePath).getName());
+                SwingUtilities.invokeLater(this::processImage);
+            }
+        } catch (NumberFormatException e) {
+            System.err.println("[CONFIG] Invalid config value: " + e.getMessage());
+        }
+    }
+
+    // ==================== RESOURCES ====================
 
     private void checkResources() {
         if (!detector.isHaarAvailable()) {
@@ -89,7 +205,14 @@ public class TuningGUI extends JFrame {
     }
 
     private void initializeUI() {
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                saveConfig();
+                System.exit(0);
+            }
+        });
         setSize(1500, 950);
         setLocationRelativeTo(null);
 
@@ -130,17 +253,17 @@ public class TuningGUI extends JFrame {
 
         showHaarCheck = new JCheckBox("Show Haar Cascade (Green)", true);
         showHaarCheck.setForeground(new Color(0, 150, 0));
-        showHaarCheck.addActionListener(e -> updatePreview());
+        showHaarCheck.addActionListener(e -> { updatePreview(); scheduleAutoSave(); });
         togglePanel.add(showHaarCheck);
 
         showGeoCheck = new JCheckBox("Show Geometric (Blue)", true);
         showGeoCheck.setForeground(new Color(0, 0, 200));
-        showGeoCheck.addActionListener(e -> updatePreview());
+        showGeoCheck.addActionListener(e -> { updatePreview(); scheduleAutoSave(); });
         togglePanel.add(showGeoCheck);
 
         showOverlapCheck = new JCheckBox("Show High Confidence (Red)", true);
         showOverlapCheck.setForeground(new Color(200, 0, 0));
-        showOverlapCheck.addActionListener(e -> updatePreview());
+        showOverlapCheck.addActionListener(e -> { updatePreview(); scheduleAutoSave(); });
         togglePanel.add(showOverlapCheck);
 
         panel.add(togglePanel);
@@ -184,6 +307,24 @@ public class TuningGUI extends JFrame {
         canny2Slider.addChangeListener(e -> canny2ValueLabel.setText("Value: " + canny2Slider.getValue()));
         canny2Slider.addChangeListener(createProcessListener());
         geoParamsPanel.add(createSliderPanel("Canny Threshold 2:", canny2Slider, canny2ValueLabel));
+
+        // Dilate Kernel
+        dilateKernelSlider = createSlider(1, 15, 3, 2, "Dilate Kernel");
+        JLabel dilateKernelValueLabel = new JLabel("Value: 3", SwingConstants.CENTER);
+        dilateKernelSlider.addChangeListener(e -> {
+            int val = dilateKernelSlider.getValue();
+            if (val % 2 == 0) val++;
+            dilateKernelValueLabel.setText("Value: " + val);
+        });
+        dilateKernelSlider.addChangeListener(createProcessListener());
+        geoParamsPanel.add(createSliderPanel("Dilate Kernel:", dilateKernelSlider, dilateKernelValueLabel));
+
+        // Dilate Iterations
+        dilateIterSlider = createSlider(0, 10, 2, 1, "Dilate Iterations");
+        JLabel dilateIterValueLabel = new JLabel("Value: 2", SwingConstants.CENTER);
+        dilateIterSlider.addChangeListener(e -> dilateIterValueLabel.setText("Value: " + dilateIterSlider.getValue()));
+        dilateIterSlider.addChangeListener(createProcessListener());
+        geoParamsPanel.add(createSliderPanel("Dilate Iterations:", dilateIterSlider, dilateIterValueLabel));
 
         // Aspect Ratio
         JPanel arPanel = new JPanel(new GridLayout(2, 2, 5, 5));
@@ -327,7 +468,10 @@ public class TuningGUI extends JFrame {
         fileMenu.add(openItem);
         fileMenu.addSeparator();
         JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(e -> System.exit(0));
+        exitItem.addActionListener(e -> {
+            saveConfig();
+            System.exit(0);
+        });
         fileMenu.add(exitItem);
         menuBar.add(fileMenu);
 
@@ -347,6 +491,8 @@ public class TuningGUI extends JFrame {
                 }
                 SwingUtilities.invokeLater(this::processImage);
             }
+            // Schedule auto-save after parameter change
+            scheduleAutoSave();
         };
     }
 
@@ -360,6 +506,7 @@ public class TuningGUI extends JFrame {
             statusLabel.setText("Loaded: " + file.getName());
             clearOcrResults();
             processImage();
+            scheduleAutoSave(); // Save when new image is loaded
         }
     }
 
@@ -375,9 +522,14 @@ public class TuningGUI extends JFrame {
         int blurValue = blurSlider.getValue();
         if (blurValue % 2 == 0) blurValue++;
 
+        int dilateKernel = dilateKernelSlider.getValue();
+        if (dilateKernel % 2 == 0) dilateKernel++;
+
         detector.setBlurKernel(blurValue);
         detector.setCannyThreshold1(canny1Slider.getValue());
         detector.setCannyThreshold2(canny2Slider.getValue());
+        detector.setDilateKernelSize(dilateKernel);
+        detector.setDilateIterations(dilateIterSlider.getValue());
         detector.setMinAspectRatio((Double) minARSpinner.getValue());
         detector.setMaxAspectRatio((Double) maxARSpinner.getValue());
 
@@ -393,8 +545,9 @@ public class TuningGUI extends JFrame {
         statsLabel.setText(String.format("Haar: %d | Geo: %d | Overlap: %d", stats[0], stats[1], stats[2]));
 
         String status = results.isEmpty() ? "No plates found" : results.size() + " detection(s)";
-        statusLabel.setText(status + " | Params: Blur=" + blurValue +
-            ", Canny=" + canny1Slider.getValue() + "-" + canny2Slider.getValue());
+        statusLabel.setText(status + " | Blur=" + blurValue +
+            ", Canny=" + canny1Slider.getValue() + "-" + canny2Slider.getValue() +
+            ", Dilate=" + dilateKernel + "x" + dilateIterSlider.getValue());
 
         updatePreview();
     }
@@ -516,6 +669,8 @@ public class TuningGUI extends JFrame {
         blurSlider.setValue(11);
         canny1Slider.setValue(50);
         canny2Slider.setValue(150);
+        dilateKernelSlider.setValue(3);
+        dilateIterSlider.setValue(2);
         minARSpinner.setValue(2.0);
         maxARSpinner.setValue(7.0);
         showHaarCheck.setSelected(true);
@@ -523,6 +678,7 @@ public class TuningGUI extends JFrame {
         showOverlapCheck.setSelected(true);
         clearOcrResults();
         if (currentImagePath != null) processImage();
+        scheduleAutoSave(); // Save after reset
     }
 
     // ==================== IMAGE PANEL ====================
