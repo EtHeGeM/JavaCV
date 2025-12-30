@@ -25,6 +25,9 @@
 
 **ALPR Tuning Tool** is an academic project developed to facilitate the optimization of image processing parameters used in license plate recognition systems.
 
+https://github.com/EtHeGeM/JavaCV developed with love by the ALPR Academic Project Team at Istanbul Isik University. 
+Personal thanks for E.Gemici and M.Ozbay for their overall and helps contributions.
+
 ### Important Note
 
 > This project is **not a complete license plate recognition system**. Its main purpose is to provide a tool for **real-time testing and optimization** of:
