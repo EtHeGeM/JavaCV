@@ -153,6 +153,83 @@
                     <mainClass>com.alpr.Main</mainClass>
                 </configuration>
             </plugin>
+
+            <!--
+                Launch4j Maven Plugin
+                - Creates Windows executable (.exe) from JAR
+                - Bundles JRE or uses system Java
+            -->
+            <plugin>
+                <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                <artifactId>launch4j-maven-plugin</artifactId>
+                <version>2.5.0</version>
+                <executions>
+                    <!-- CLI Executable -->
+                    <execution>
+                        <id>create-cli-exe</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <headerType>console</headerType>
+                            <jar>${project.build.directory}/${project.artifactId}-${project.version}.jar</jar>
+                            <outfile>${project.build.directory}/alpr-cli.exe</outfile>
+                            <classPath>
+                                <mainClass>com.alpr.Main</mainClass>
+                            </classPath>
+                            <icon>icon.ico</icon>
+                            <jre>
+                                <path>%JAVA_HOME%</path>
+                                <minVersion>17</minVersion>
+                            </jre>
+                            <versionInfo>
+                                <fileVersion>1.0.0.0</fileVersion>
+                                <txtFileVersion>1.0.0</txtFileVersion>
+                                <fileDescription>ALPR - License Plate Recognition CLI</fileDescription>
+                                <copyright>GPL-3.0</copyright>
+                                <productVersion>1.0.0.0</productVersion>
+                                <txtProductVersion>1.0.0</txtProductVersion>
+                                <productName>ALPR Tuning Tool</productName>
+                                <internalName>alpr-cli</internalName>
+                                <originalFilename>alpr-cli.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                    <!-- GUI Executable -->
+                    <execution>
+                        <id>create-gui-exe</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <headerType>gui</headerType>
+                            <jar>${project.build.directory}/${project.artifactId}-${project.version}.jar</jar>
+                            <outfile>${project.build.directory}/alpr-gui.exe</outfile>
+                            <classPath>
+                                <mainClass>com.alpr.TuningGUI</mainClass>
+                            </classPath>
+                            <icon>icon.ico</icon>
+                            <jre>
+                                <path>%JAVA_HOME%</path>
+                                <minVersion>17</minVersion>
+                            </jre>
+                            <versionInfo>
+                                <fileVersion>1.0.0.0</fileVersion>
+                                <txtFileVersion>1.0.0</txtFileVersion>
+                                <fileDescription>ALPR - License Plate Recognition GUI</fileDescription>
+                                <copyright>GPL-3.0</copyright>
+                                <productVersion>1.0.0.0</productVersion>
+                                <txtProductVersion>1.0.0</txtProductVersion>
+                                <productName>ALPR Tuning Tool</productName>
+                                <internalName>alpr-gui</internalName>
+                                <originalFilename>alpr-gui.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>
